@@ -9,16 +9,14 @@ from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
 
-
 SUSPICIOUS_DIRECTORY_KEYWORDS: tuple[str, ...] = (
     "/tmp",
     "/var/tmp",
     "/dev/shm",
     "/downloads",
     "/.cache",
-    "\\downloads",
-    "\\appdata\\local\\temp",
-    "\\windows\\temp",
+    "/appdata/local/temp",
+    "/windows/temp",
 )
 
 
@@ -89,7 +87,10 @@ def detect_suspicious_directory(process: ProcessInfo) -> list[Finding]:
 
 def _normalize_path(path: str) -> str:
     """
-    Normalize path for cross-platform comparison.
+    Normalize paths for cross-platform comparison.
+
+    Windows paths use backslashes, while Linux/macOS paths use forward slashes.
+    This function converts backslashes to forward slashes and normalizes case.
 
     Args:
         path: Original file path.
@@ -97,4 +98,4 @@ def _normalize_path(path: str) -> str:
     Returns:
         str: Lowercase normalized path.
     """
-    return path.replace("\\", "\\").casefold()
+    return path.replace("\\", "/").casefold()

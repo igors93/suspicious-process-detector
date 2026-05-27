@@ -23,7 +23,6 @@ from suspicious_process_detector.rules.directory_rules import (
 )
 from suspicious_process_detector.rules.name_rules import detect_suspicious_name
 
-
 RuleFunction = Callable[[ProcessInfo], list[Finding]]
 
 

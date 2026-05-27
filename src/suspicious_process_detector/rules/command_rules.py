@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
 
-
 SUSPICIOUS_COMMAND_KEYWORDS: tuple[str, ...] = (
     "encodedcommand",
     "invoke-webrequest",

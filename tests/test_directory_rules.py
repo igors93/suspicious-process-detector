@@ -41,3 +41,19 @@ def test_detect_suspicious_directory_downloads() -> None:
 
     assert len(findings) >= 1
     assert findings[0].rule_id == "DIR_002"
+
+def test_detect_suspicious_directory_windows_temp() -> None:
+    process = ProcessInfo(
+        pid=123,
+        name="update.exe",
+        username="test",
+        executable_path=r"C:\Users\Igor\AppData\Local\Temp\update.exe",
+        command_line="",
+        cpu_percent=0.0,
+        memory_percent=0.0,
+    )
+
+    findings = detect_suspicious_directory(process)
+
+    assert len(findings) >= 1
+    assert findings[0].rule_id == "DIR_002"

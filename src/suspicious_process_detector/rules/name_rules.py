@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
 
-
 SUSPICIOUS_PROCESS_NAMES: tuple[str, ...] = (
     "svchosts.exe",
     "chrome_update.exe",

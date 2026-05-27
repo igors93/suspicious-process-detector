@@ -11,7 +11,6 @@ import argparse
 import sys
 from pathlib import Path
 
-
 # Allows running the project with: python main.py
 # without requiring package installation during the first version.
 PROJECT_ROOT = Path(__file__).resolve().parent
