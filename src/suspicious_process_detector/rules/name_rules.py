@@ -1,12 +1,14 @@
 """
 Process name detection rules.
 
-These rules look for suspicious or commonly abused process names.
+These rules look for suspicious names, lookalike process names, and known
+system process names running from unusual locations.
 """
 
 from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
+
 
 SUSPICIOUS_PROCESS_NAMES: tuple[str, ...] = (
     "svchosts.exe",
@@ -18,7 +20,6 @@ SUSPICIOUS_PROCESS_NAMES: tuple[str, ...] = (
     "temp.exe",
 )
 
-
 LOOKALIKE_PROCESS_NAMES: tuple[str, ...] = (
     "svhost.exe",
     "scvhost.exe",
@@ -26,13 +27,34 @@ LOOKALIKE_PROCESS_NAMES: tuple[str, ...] = (
     "winlogin.exe",
 )
 
+EXPECTED_WINDOWS_PROCESS_PATHS: dict[str, tuple[str, ...]] = {
+    "svchost.exe": (
+        "/windows/system32/svchost.exe",
+        "/windows/syswow64/svchost.exe",
+    ),
+    "lsass.exe": (
+        "/windows/system32/lsass.exe",
+    ),
+    "winlogon.exe": (
+        "/windows/system32/winlogon.exe",
+    ),
+    "services.exe": (
+        "/windows/system32/services.exe",
+    ),
+    "cmd.exe": (
+        "/windows/system32/cmd.exe",
+        "/windows/syswow64/cmd.exe",
+    ),
+    "powershell.exe": (
+        "/windows/system32/windowspowershell/v1.0/powershell.exe",
+        "/windows/syswow64/windowspowershell/v1.0/powershell.exe",
+    ),
+}
+
 
 def detect_suspicious_name(process: ProcessInfo) -> list[Finding]:
     """
     Detect suspicious process names.
-
-    This does not mean the process is malicious. It only means the name
-    deserves investigation.
 
     Args:
         process: Process information.
@@ -72,3 +94,58 @@ def detect_suspicious_name(process: ProcessInfo) -> list[Finding]:
         )
 
     return findings
+
+
+def detect_system_process_wrong_location(process: ProcessInfo) -> list[Finding]:
+    """
+    Detect known Windows system process names running from unexpected paths.
+
+    This rule does not prove malicious behavior. It only identifies a process
+    name and path combination that deserves manual review.
+
+    Args:
+        process: Process information.
+
+    Returns:
+        list[Finding]: Findings detected by this rule.
+    """
+    process_name = process.name.casefold().strip()
+
+    if process_name not in EXPECTED_WINDOWS_PROCESS_PATHS:
+        return []
+
+    if not process.executable_path:
+        return []
+
+    normalized_path = _normalize_path(process.executable_path)
+    expected_paths = EXPECTED_WINDOWS_PROCESS_PATHS[process_name]
+
+    if normalized_path.endswith(expected_paths):
+        return []
+
+    return [
+        Finding(
+            rule_id="NAME_003",
+            title="System process name running from unexpected path",
+            description=(
+                f"Process '{process.name}' is running from "
+                f"'{process.executable_path}', which is not an expected "
+                "location for this process name."
+            ),
+            severity="medium",
+            score=4,
+        )
+    ]
+
+
+def _normalize_path(path: str) -> str:
+    """
+    Normalize process paths for comparison.
+
+    Args:
+        path: Original process path.
+
+    Returns:
+        str: Normalized path.
+    """
+    return path.replace("\\", "/").casefold()

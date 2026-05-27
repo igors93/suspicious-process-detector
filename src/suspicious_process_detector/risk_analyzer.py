@@ -21,7 +21,14 @@ from suspicious_process_detector.rules.directory_rules import (
     detect_missing_executable_path,
     detect_suspicious_directory,
 )
-from suspicious_process_detector.rules.name_rules import detect_suspicious_name
+from suspicious_process_detector.rules.name_rules import (
+    detect_suspicious_name,
+    detect_system_process_wrong_location,
+)
+from suspicious_process_detector.rules.parent_rules import (
+    detect_suspicious_parent_child,
+)
+
 
 RuleFunction = Callable[[ProcessInfo], list[Finding]]
 
@@ -52,7 +59,9 @@ class RiskAnalyzer:
             detect_missing_executable_path,
             detect_suspicious_directory,
             detect_suspicious_name,
+            detect_system_process_wrong_location,
             detect_suspicious_commands,
+            detect_suspicious_parent_child,
             self._detect_high_resource_usage,
         ]
 

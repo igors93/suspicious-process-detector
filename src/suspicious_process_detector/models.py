@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
+
 Severity = Literal["low", "medium", "high"]
 
 
@@ -33,6 +34,10 @@ class ProcessInfo:
         command_line: Command line used to start the process.
         cpu_percent: CPU usage percentage.
         memory_percent: Memory usage percentage.
+        ppid: Parent process ID, when available.
+        parent_name: Parent process name, when available.
+        status: Process status, when available.
+        created_at: Process creation time in UTC ISO 8601 format, when available.
     """
 
     pid: int
@@ -42,6 +47,10 @@ class ProcessInfo:
     command_line: str
     cpu_percent: float
     memory_percent: float
+    ppid: int | None = None
+    parent_name: str | None = None
+    status: str | None = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict:
         """

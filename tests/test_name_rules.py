@@ -5,6 +5,11 @@ Tests for process name detection rules.
 from suspicious_process_detector.models import ProcessInfo
 from suspicious_process_detector.rules.name_rules import detect_suspicious_name
 
+from suspicious_process_detector.rules.name_rules import (
+    detect_suspicious_name,
+    detect_system_process_wrong_location,
+)
+
 
 def test_detect_suspicious_process_name() -> None:
     process = ProcessInfo(
@@ -38,3 +43,19 @@ def test_detect_lookalike_process_name() -> None:
 
     assert len(findings) == 1
     assert findings[0].rule_id == "NAME_002"
+
+def test_detect_system_process_wrong_location() -> None:
+    process = ProcessInfo(
+        pid=123,
+        name="svchost.exe",
+        username="test",
+        executable_path=r"C:\Users\Igor\AppData\Local\Temp\svchost.exe",
+        command_line="svchost.exe",
+        cpu_percent=0.0,
+        memory_percent=0.0,
+    )
+
+    findings = detect_system_process_wrong_location(process)
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "NAME_003"
