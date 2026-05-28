@@ -16,7 +16,6 @@ import psutil
 
 from suspicious_process_detector.models import ProcessInfo
 
-
 T = TypeVar("T")
 
 
@@ -64,7 +63,20 @@ class ProcessCollector:
         before collecting data improves the accuracy of the next reading.
         """
         for process in psutil.process_iter():
-            self._safe_call(lambda: process.cpu_percent(interval=None))
+            self._warm_up_process_cpu_counter(process)
+
+    @staticmethod
+    def _warm_up_process_cpu_counter(process: psutil.Process) -> None:
+        """
+        Warm up CPU counter for a single process.
+
+        Args:
+            process: psutil process instance.
+        """
+        try:
+            process.cpu_percent(interval=None)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return
 
     def _safe_collect_process(self, process: psutil.Process) -> ProcessInfo | None:
         """

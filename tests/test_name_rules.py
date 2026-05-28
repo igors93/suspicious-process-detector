@@ -3,8 +3,6 @@ Tests for process name detection rules.
 """
 
 from suspicious_process_detector.models import ProcessInfo
-from suspicious_process_detector.rules.name_rules import detect_suspicious_name
-
 from suspicious_process_detector.rules.name_rules import (
     detect_suspicious_name,
     detect_system_process_wrong_location,
@@ -43,6 +41,7 @@ def test_detect_lookalike_process_name() -> None:
 
     assert len(findings) == 1
     assert findings[0].rule_id == "NAME_002"
+
 
 def test_detect_system_process_wrong_location() -> None:
     process = ProcessInfo(

@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-
 Severity = Literal["low", "medium", "high"]
+SignalStrength = Literal["weak", "strong"]
 
 
 SEVERITY_RANK: dict[Severity, int] = {
@@ -25,19 +25,6 @@ SEVERITY_RANK: dict[Severity, int] = {
 class ProcessInfo:
     """
     Represents relevant information about a running process.
-
-    Attributes:
-        pid: Process ID.
-        name: Process name.
-        username: User that owns the process.
-        executable_path: Full path to the process executable, when available.
-        command_line: Command line used to start the process.
-        cpu_percent: CPU usage percentage.
-        memory_percent: Memory usage percentage.
-        ppid: Parent process ID, when available.
-        parent_name: Parent process name, when available.
-        status: Process status, when available.
-        created_at: Process creation time in UTC ISO 8601 format, when available.
     """
 
     pid: int
@@ -73,6 +60,7 @@ class Finding:
         description: Detailed explanation of the finding.
         severity: Finding severity.
         score: Numeric risk score added by this finding.
+        signal: Signal strength. Weak signals should not always alert alone.
     """
 
     rule_id: str
@@ -80,6 +68,7 @@ class Finding:
     description: str
     severity: Severity
     score: int
+    signal: SignalStrength = "weak"
 
     def to_dict(self) -> dict:
         """
@@ -95,13 +84,6 @@ class Finding:
 class ProcessAlert:
     """
     Represents a suspicious process alert.
-
-    Attributes:
-        process: Process information.
-        findings: List of findings detected for the process.
-        risk_score: Total risk score.
-        severity: Final alert severity.
-        detected_at: UTC timestamp when the alert was generated.
     """
 
     process: ProcessInfo

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
 
-
 SUSPICIOUS_PARENT_PROCESSES: tuple[str, ...] = (
     "chrome.exe",
     "msedge.exe",
@@ -56,10 +55,7 @@ def detect_suspicious_parent_child(process: ProcessInfo) -> list[Finding]:
     parent_name = process.parent_name.casefold().strip()
     child_name = process.name.casefold().strip()
 
-    if (
-        parent_name in SUSPICIOUS_PARENT_PROCESSES
-        and child_name in SUSPICIOUS_CHILD_PROCESSES
-    ):
+    if _is_suspicious_relationship(parent_name, child_name):
         return [
             Finding(
                 rule_id="PARENT_001",
@@ -70,8 +66,19 @@ def detect_suspicious_parent_child(process: ProcessInfo) -> list[Finding]:
                     "may deserve manual investigation."
                 ),
                 severity="medium",
-                score=3,
+                score=4,
+                signal="strong",
             )
         ]
 
     return []
+
+
+def _is_suspicious_relationship(parent_name: str, child_name: str) -> bool:
+    """
+    Check if a parent-child relationship should be considered suspicious.
+    """
+    return (
+        parent_name in SUSPICIOUS_PARENT_PROCESSES
+        and child_name in SUSPICIOUS_CHILD_PROCESSES
+    )

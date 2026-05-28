@@ -29,16 +29,18 @@ from suspicious_process_detector.rules.parent_rules import (
     detect_suspicious_parent_child,
 )
 
-
 RuleFunction = Callable[[ProcessInfo], list[Finding]]
+
+MINIMUM_SCORE_FOR_WEAK_ONLY_ALERT = 4
+MINIMUM_WEAK_FINDINGS_FOR_ALERT = 3
 
 
 class RiskAnalyzer:
     """
     Applies rules to processes and generates alerts.
 
-    New rules can be added by creating a function that receives ProcessInfo
-    and returns a list of Finding objects.
+    The analyzer only emits an alert when there is at least one strong signal
+    or when multiple weak signals appear together.
     """
 
     def __init__(
@@ -86,6 +88,9 @@ class RiskAnalyzer:
         if not findings:
             return None
 
+        if not self._should_emit_alert(findings):
+            return None
+
         risk_score = sum(finding.score for finding in findings)
         severity = calculate_severity(risk_score)
 
@@ -122,7 +127,7 @@ class RiskAnalyzer:
         Detect high CPU or memory usage.
 
         High resource usage alone does not mean malware. This rule produces
-        low severity findings because it should be treated as a weak signal.
+        weak findings because it should be treated as a weak signal.
         """
         findings: list[Finding] = []
 
@@ -138,6 +143,7 @@ class RiskAnalyzer:
                     ),
                     severity="low",
                     score=1,
+                    signal="weak",
                 )
             )
 
@@ -153,10 +159,29 @@ class RiskAnalyzer:
                     ),
                     severity="low",
                     score=1,
+                    signal="weak",
                 )
             )
 
         return findings
+
+    @staticmethod
+    def _should_emit_alert(findings: list[Finding]) -> bool:
+        """
+        Decide whether findings are strong enough to become an alert.
+
+        Returns:
+            bool: True if the process should appear in the final report.
+        """
+        has_strong_signal = any(finding.signal == "strong" for finding in findings)
+        total_score = sum(finding.score for finding in findings)
+        weak_findings_count = sum(1 for finding in findings if finding.signal == "weak")
+
+        return (
+            has_strong_signal
+            or total_score >= MINIMUM_SCORE_FOR_WEAK_ONLY_ALERT
+            or weak_findings_count >= MINIMUM_WEAK_FINDINGS_FOR_ALERT
+        )
 
     @staticmethod
     def _utc_now() -> str:

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from suspicious_process_detector.models import Finding, ProcessInfo
 
-
 SUSPICIOUS_PROCESS_NAMES: tuple[str, ...] = (
     "svchosts.exe",
     "chrome_update.exe",
@@ -56,6 +55,9 @@ def detect_suspicious_name(process: ProcessInfo) -> list[Finding]:
     """
     Detect suspicious process names.
 
+    Generic names are weak by themselves, while lookalike names are stronger
+    indicators because they may be trying to imitate legitimate processes.
+
     Args:
         process: Process information.
 
@@ -74,8 +76,9 @@ def detect_suspicious_name(process: ProcessInfo) -> list[Finding]:
                     f"Process name '{process.name}' is commonly abused "
                     "or too generic."
                 ),
-                severity="medium",
+                severity="low",
                 score=2,
+                signal="weak",
             )
         )
 
@@ -89,7 +92,8 @@ def detect_suspicious_name(process: ProcessInfo) -> list[Finding]:
                     "legitimate system process."
                 ),
                 severity="medium",
-                score=3,
+                score=4,
+                signal="strong",
             )
         )
 
@@ -133,7 +137,8 @@ def detect_system_process_wrong_location(process: ProcessInfo) -> list[Finding]:
                 "location for this process name."
             ),
             severity="medium",
-            score=4,
+            score=5,
+            signal="strong",
         )
     ]
 

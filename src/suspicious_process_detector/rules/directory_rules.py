@@ -47,6 +47,7 @@ def detect_missing_executable_path(process: ProcessInfo) -> list[Finding]:
             ),
             severity="low",
             score=1,
+            signal="weak",
         )
     ]
 
@@ -54,6 +55,9 @@ def detect_missing_executable_path(process: ProcessInfo) -> list[Finding]:
 def detect_suspicious_directory(process: ProcessInfo) -> list[Finding]:
     """
     Detect processes running from suspicious directories.
+
+    Running executables from temporary folders, Downloads, or cache folders is
+    not always malicious, but it is a strong indicator for manual review.
 
     Args:
         process: Process information.
@@ -78,7 +82,8 @@ def detect_suspicious_directory(process: ProcessInfo) -> list[Finding]:
                         f"directory keyword: {directory_keyword}"
                     ),
                     severity="medium",
-                    score=3,
+                    score=4,
+                    signal="strong",
                 )
             )
 
