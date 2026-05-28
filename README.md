@@ -2,17 +2,25 @@
 
 ![Tests](https://github.com/igors93/suspicious-process-detector/actions/workflows/tests.yml/badge.svg)
 
-A lightweight defensive Python tool that scans running processes, detects suspicious indicators, and generates alerts for manual investigation.
+A lightweight defensive Python tool that analyzes running processes, detects suspicious indicators, and generates alerts for manual investigation.
 
 ---
 
 ## What Is This Project?
 
-Suspicious Process Detector is a simple rule-based process analysis tool.
+Suspicious Process Detector is a rule-based defensive process analysis tool.
 
-It scans currently running processes on a computer and looks for indicators that may deserve attention, such as suspicious process names, unusual execution paths, suspicious command-line keywords, and uncommon parent-child process relationships.
+It scans processes currently running on the machine and looks for indicators that may suggest suspicious or potentially malicious behavior.
 
-This project is designed for learning, defensive security practice, and portfolio building.
+The goal is to help identify programs that are already running and may deserve manual investigation.
+
+This project is designed for:
+
+- defensive security learning
+- Blue Team practice
+- Python portfolio building
+- process behavior analysis
+- safe local experimentation
 
 ---
 
@@ -28,6 +36,7 @@ It does not:
 - kill processes
 - block threats
 - modify system files
+- scan inactive files on disk
 - guarantee that a process is malicious
 
 It only analyzes running processes and generates alerts.
@@ -40,16 +49,20 @@ After the user receives an alert, the investigation and response are manual.
 
 - Scans running processes
 - Collects process metadata
+- Collects parent process information
 - Detects suspicious directories
 - Detects suspicious process names
 - Detects lookalike process names
 - Detects suspicious command-line keywords
-- Detects possible obfuscated commands
+- Detects possible command obfuscation
 - Detects suspicious parent-child process relationships
-- Detects known system process names running from unusual paths
+- Detects known Windows system process names running from unexpected paths
+- Uses weak and strong signal filtering
+- Reduces noisy false positives from common applications
 - Calculates a risk score
 - Classifies alerts as low, medium, or high
 - Generates a JSON report
+- Includes a harmless suspicious process simulator for testing
 - Runs tests with pytest
 - Runs lint checks with Ruff
 - Includes GitHub Actions CI
@@ -76,7 +89,51 @@ JsonReporter
 reports/process_report.json
 ```
 
-The tool only reads process information and writes a local JSON report.
+The program only reads process information and writes a local JSON report.
+
+---
+
+## Detection Philosophy
+
+The detector uses two types of signals:
+
+```txt
+weak   = weak indicator, usually not enough alone
+strong = strong indicator, should generate an alert
+```
+
+Examples of weak signals:
+
+```txt
+long command line
+high CPU usage
+high memory usage
+missing executable path
+generic suspicious name
+```
+
+Examples of strong signals:
+
+```txt
+process running from Temp
+process running from Downloads
+lookalike process name
+system process running from unexpected path
+powershell with encodedcommand
+command line using certutil or bitsadmin
+browser spawning powershell or cmd
+Office application spawning script interpreters
+```
+
+The analyzer only emits an alert when:
+
+```txt
+there is at least one strong signal
+or multiple weak signals appear together
+or the total risk score is high enough
+```
+
+This helps reduce false positives while still detecting suspicious running programs.
 
 ---
 
@@ -109,6 +166,9 @@ suspicious-process-detector/
 │           ├── name_rules.py
 │           └── parent_rules.py
 │
+├── tools/
+│   └── suspicious_process_simulator.py
+│
 ├── reports/
 │   └── .gitkeep
 │
@@ -117,7 +177,28 @@ suspicious-process-detector/
     ├── test_command_rules.py
     ├── test_directory_rules.py
     ├── test_name_rules.py
-    └── test_parent_rules.py
+    ├── test_parent_rules.py
+    └── test_risk_analyzer.py
+```
+
+---
+
+## Requirements
+
+- Python 3.10 or higher
+- pip
+
+Runtime dependency:
+
+```txt
+psutil
+```
+
+Development dependencies:
+
+```txt
+pytest
+ruff
 ```
 
 ---
@@ -143,7 +224,13 @@ Activate it on Windows:
 .venv\Scripts\activate
 ```
 
-Install dependencies:
+Activate it on Linux or macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Install runtime dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -190,11 +277,44 @@ python main.py --limit 5
 ```txt
 [+] Suspicious Process Detector
 [+] Report saved to: reports/process_report.json
-[+] Alerts found: 2
+[+] Alerts found: 1
 
 Top alerts:
-- [MEDIUM] PID=1234 NAME=update.exe SCORE=5
-- [LOW] PID=4321 NAME=python.exe SCORE=1
+- [MEDIUM] PID=3704 NAME=python3.10.exe SCORE=4
+```
+
+---
+
+## Reports
+
+By default, reports are saved to:
+
+```txt
+reports/process_report.json
+```
+
+The report contains:
+
+- generated timestamp
+- total alerts
+- process metadata
+- severity
+- risk score
+- detected findings
+- finding descriptions
+- signal type
+
+Example finding:
+
+```json
+{
+  "rule_id": "CMD_001",
+  "title": "Possible command obfuscation",
+  "description": "Command line contains possible obfuscation keyword: encodedcommand",
+  "severity": "medium",
+  "score": 4,
+  "signal": "strong"
+}
 ```
 
 ---
@@ -217,6 +337,10 @@ Examples:
 /windows/temp
 ```
 
+A process running from these directories is treated as a strong signal.
+
+---
+
 ### Name Indicators
 
 Detects suspicious or commonly abused process names.
@@ -233,6 +357,10 @@ service.exe
 temp.exe
 ```
 
+Generic names may be weak signals by themselves, but they can increase risk when combined with other indicators.
+
+---
+
 ### Lookalike Process Names
 
 Detects names that look similar to legitimate system processes.
@@ -245,6 +373,10 @@ scvhost.exe
 expl0rer.exe
 winlogin.exe
 ```
+
+Lookalike process names are treated as stronger indicators because they may be trying to imitate legitimate processes.
+
+---
 
 ### Command-Line Indicators
 
@@ -266,19 +398,74 @@ chmod +x
 netcat
 ```
 
+These indicators are useful for identifying suspicious script execution, download behavior, or command obfuscation.
+
+---
+
+### Long Command Line Detection
+
+Long command lines are common in browsers and Electron applications such as:
+
+```txt
+chrome.exe
+msedge.exe
+Code.exe
+mscopilot.exe
+Codex.exe
+```
+
+Because of this, the detector does not alert only because these applications have long command lines.
+
+Long command line detection is currently focused on sensitive processes such as:
+
+```txt
+powershell.exe
+cmd.exe
+wscript.exe
+cscript.exe
+mshta.exe
+rundll32.exe
+regsvr32.exe
+python.exe
+python3.10.exe
+bash
+sh
+```
+
+---
+
 ### Parent-Child Process Indicators
 
 Detects unusual parent-child process relationships.
 
-Example:
+Examples:
 
 ```txt
 chrome.exe -> powershell.exe
-winword.exe -> cmd.exe
+msedge.exe -> cmd.exe
+winword.exe -> powershell.exe
 outlook.exe -> wscript.exe
+excel.exe -> mshta.exe
 ```
 
 These relationships are not always malicious, but they are useful signals for manual investigation.
+
+---
+
+### System Process Wrong Location
+
+Detects known Windows system process names running from unexpected paths.
+
+Examples:
+
+```txt
+svchost.exe running from Temp
+lsass.exe running from Downloads
+winlogon.exe running from AppData
+services.exe running outside System32
+```
+
+This does not prove that the process is malicious, but it is a strong indicator for manual investigation.
 
 ---
 
@@ -286,16 +473,21 @@ These relationships are not always malicious, but they are useful signals for ma
 
 Each finding adds points to a process risk score.
 
-Example:
+Example scoring:
 
 ```txt
 Missing executable path: +1
+High CPU usage: +1
+High memory usage: +1
 Suspicious process name: +2
-Suspicious command keyword: +2
-Suspicious directory: +3
-Lookalike process name: +3
-Suspicious parent-child relationship: +3
-System process running from unexpected path: +4
+Unusually long command line: +1
+Possible command obfuscation: +4
+Command-line download activity: +4
+Suspicious shell behavior: +4
+Suspicious directory: +4
+Lookalike process name: +4
+Suspicious parent-child relationship: +4
+System process running from unexpected path: +5
 ```
 
 Severity:
@@ -304,6 +496,103 @@ Severity:
 0-3 points: low
 4-7 points: medium
 8+ points: high
+```
+
+---
+
+## Testing With the Harmless Simulator
+
+This repository includes a harmless simulator for testing detection rules.
+
+The simulator is **not malware**.
+
+It does not:
+
+- modify files
+- delete files
+- download anything
+- connect to the internet
+- execute system commands
+- change system settings
+
+It only stays alive with suspicious-looking command-line arguments so the detector can identify it during a scan.
+
+---
+
+### Run the Simulator on Windows
+
+Open a terminal in the project root and run:
+
+```cmd
+cd tools
+python suspicious_process_simulator.py --encodedcommand fake-test --payload AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --sleep 300
+```
+
+Keep this terminal open.
+
+Then open another terminal in the project root and run:
+
+```cmd
+python main.py --min-severity medium --limit 20
+```
+
+Expected result:
+
+```txt
+[MEDIUM] PID=... NAME=python.exe SCORE=4
+```
+
+or:
+
+```txt
+[MEDIUM] PID=... NAME=python3.10.exe SCORE=4
+```
+
+The alert should be triggered because the command line contains:
+
+```txt
+--encodedcommand
+```
+
+This activates the command obfuscation detection rule.
+
+---
+
+### Run the Simulator on Linux or macOS
+
+Open a terminal in the project root and run:
+
+```bash
+cd tools
+python3 suspicious_process_simulator.py --encodedcommand fake-test --payload AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --sleep 300
+```
+
+Keep this terminal open.
+
+Then open another terminal in the project root and run:
+
+```bash
+python3 main.py --min-severity medium --limit 20
+```
+
+---
+
+## Important Note About the Simulator
+
+If you run only:
+
+```bash
+python tools/suspicious_process_simulator.py
+```
+
+the detector may not alert.
+
+That happens because default Python arguments inside the script do not necessarily appear in the operating system process command line.
+
+To trigger detection, pass suspicious-looking arguments directly in the command line:
+
+```bash
+--encodedcommand fake-test
 ```
 
 ---
@@ -328,6 +617,14 @@ Auto-fix simple lint issues:
 python -m ruff check . --fix
 ```
 
+Recommended development check:
+
+```bash
+python -m ruff check .
+python -m pytest
+python main.py
+```
+
 ---
 
 ## Security Notice
@@ -340,6 +637,8 @@ Generated reports may contain sensitive local system information, such as:
 - command-line arguments
 
 Do not upload real reports from your personal machine unless you review and sanitize them first.
+
+Reports are ignored by Git through `.gitignore`.
 
 ---
 
@@ -355,6 +654,24 @@ This project is defensive and educational.
 
 ---
 
+## Limitations
+
+This project only analyzes running processes.
+
+It does not detect:
+
+- inactive malware files on disk
+- compressed files
+- scripts that are not running
+- persistence mechanisms that are not active
+- registry modifications
+- scheduled tasks unless their processes are running
+- services that are installed but stopped
+
+It also does not prove that a process is malicious. It only identifies suspicious indicators.
+
+---
+
 ## Roadmap
 
 Planned improvements:
@@ -367,6 +684,32 @@ Planned improvements:
 - Add better Windows-specific rules
 - Add better Linux-specific rules
 - Add severity explanation in terminal output
+- Add process tree output
+- Add optional local allowlist
+- Add safer testing examples
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Good first contributions include:
+
+- adding new detection rules
+- improving tests
+- reducing false positives
+- improving documentation
+- adding Linux-specific rules
+- adding Windows-specific rules
+- improving report formats
+
+Before submitting changes, run:
+
+```bash
+python -m ruff check .
+python -m pytest
+```
 
 ---
 
